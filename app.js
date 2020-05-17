@@ -6,4 +6,4 @@ console.log(process.env.PORT);
 
 let port = process.env.PORT || 3002;
 app.listen(port);
-console.log('Listening on 8888')
+console.log('Listening on ' + port);
