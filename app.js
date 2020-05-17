@@ -4,5 +4,6 @@ app.use(express.static(__dirname + '/public'));
 
 console.log(process.env.PORT);
 
-app.listen(process.env.PORT || 3002);
+let port = process.env.PORT || 3002;
+app.listen(port);
 console.log('Listening on 8888')
