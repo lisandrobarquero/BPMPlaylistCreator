@@ -3,6 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const querystring = require('querystring');
 const cookieParser = require ('cookie-parser');
+require ('dotenv').config();
 
 const clientId = process.env.CLIENT_ID;
 const clientSecret = process.env.SECRET;
