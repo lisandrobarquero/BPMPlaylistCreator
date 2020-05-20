@@ -125,7 +125,7 @@ app.get('/refresh_token', function(req, res){
         },
         params: {
             grantType: 'refresh_token',
-            refresh_token = refreshToken
+            refresh_token : refreshToken
         },
         json: true
     };
