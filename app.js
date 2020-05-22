@@ -7,8 +7,8 @@ require ('dotenv').config();
 
 const clientId = process.env.CLIENT_ID;
 const clientSecret = process.env.SECRET;
-const redirectURI = 'https://bpm-playlist-creator.herokuapp.com/callback';
-
+const redirectURI  = process.env.BASE_URL  + '/callback';
+const spotifyBaseUrl = 'https://accounts.spotify.com';
 
 /**
  * Generates a random string containing numbers and letters
@@ -36,9 +36,10 @@ app.use(express.static(__dirname + '/public'))
 app.get('/login', (req, res) => {
     let state = generateRandomString(16);
     res.cookie(stateKey, state);
+    console.log ('req.headers.host ' + req.headers.host);
 
     let scope = 'user-read-private user-read-email';
-    res.redirect('https://accounts.spotify.com/authorize?' + 
+    res.redirect(spotifyBaseUrl + '/authorize?' + 
         querystring.stringify({
             response_type: 'code',
             client_id: clientId,
@@ -48,7 +49,7 @@ app.get('/login', (req, res) => {
         }));
 });
 
-app.get('/callback', (req, res) =>{
+app.get('/callback', function(req, res){
     let code = req.query.code || null;
     let state = req.query.state || null;
     let storedState = req.cookies ? req.cookies[stateKey] : null;
@@ -65,7 +66,7 @@ app.get('/callback', (req, res) =>{
         res.clearCookie(stateKey);
         const optionsPost = {
             method: 'post',
-            url: 'https://accounts.spotify.com/api/token',
+            url: spotifyBaseUrl + '/api/token',
             headers: {
                 'Authorization': 'Basic ' + (new Buffer (clientId + ':' + clientSecret).toString('base64')),
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -77,12 +78,16 @@ app.get('/callback', (req, res) =>{
             },
             json: true
         };
-
+       
         axios(optionsPost).then(response => {
 
-            if (response.status === 200){
+            if (response.status == 200){
+               
                 let accessToken = response.data.access_token;
                 let refreshToken = response.data.refresh_token;
+
+                console.log("a: "  +accessToken);
+                console.log("r: "  +refreshToken);
 
                 const optionsGet = {
                     method: 'get',
@@ -90,7 +95,11 @@ app.get('/callback', (req, res) =>{
                     headers: {'Authorization' : 'Bearer ' + accessToken},
                     json: true
                 };
-                axios.get(optionsGet).then (response => {
+
+                console.log("og: "  +optionsGet);
+                
+                axios(optionsGet).then (response => {
+                    console.log(response.data);
                     res.redirect ('/#' + querystring.stringify(
                         {
                         access_token: accessToken,
@@ -100,7 +109,7 @@ app.get('/callback', (req, res) =>{
                     );
                 })
                 .catch(e => {
-                    res.redirect('/#' + querystring.stringify({error: e.response.data}));
+                    res.redirect('/#' + querystring.stringify({error: e}));
                 });
             }
             else{
@@ -108,7 +117,7 @@ app.get('/callback', (req, res) =>{
             }
         })
         .catch(e => {
-            console.error('error ' + e.response.data);
+            console.error('error ' + e);
         });
     }
 });
@@ -118,31 +127,31 @@ app.get('/refresh_token', function(req, res){
     let refreshToken = req.query.refresh_token;
     const options = {
         method: 'post',
-        url: 'https://accounts.spotify.com/api/token',
+        url: spotifyBaseUrl + '/api/token',
         headers: {
-            'Authorization': 'Basic ' + (new Buffer(clientID + ':' + clientSecret).toString('base64')),
+            'Authorization': 'Basic ' + (new Buffer(clientId + ':' + clientSecret).toString('base64')),
             'Content-Type': 'application/x-www-form-urlencoded'
         },
         params: {
-            grantType: 'refresh_token',
+            grant_type: 'refresh_token',
             refresh_token : refreshToken
         },
         json: true
     };
 
     axios(options).then (response =>{
-        if (response.status === 200){
+        if (response.status == 200){
             let accessToken = response.data.access_token;
             res.send ({
-                access_token: accessToken
+                'access_token': accessToken
             });
         }
     }).catch(e => {
-        console.log('error ' + e.response.data)
+        console.log(e)
     });
 });
 
 
-let port = process.env.PORT || 3002;
+let port = process.env.PORT || 8888;
 app.listen(port);
 console.log('Listening on ' + port);
