@@ -151,7 +151,7 @@ app.get('/refresh_token', function(req, res){
     });
 });
 
-
+console.log ('redirectURI ' + redirectURI);
 let port = process.env.PORT || 8888;
 app.listen(port);
 console.log('Listening on ' + port);
