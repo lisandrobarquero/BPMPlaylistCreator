@@ -308,7 +308,7 @@
         let t = $('#tracks').DataTable();
 
         for (let i = 0; i < trackFeatures.length; i++){
-          t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', trackFeatures[i].tempo]).draw();
+          t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', Math.floor(trackFeatures[i].tempo)]).draw();
         }
 
         
