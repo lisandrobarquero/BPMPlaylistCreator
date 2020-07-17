@@ -1,141 +1,412 @@
-<!doctype html>
 <html>
   <head>
-    <title>Example of the Authorization Code flow with Spotify</title>
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-    <style type="text/css">
-      #login, #loggedin {
-        display: none;
+    <title>Playlist Creator</title>
+
+    <style>
+      .playlists-box{
+        display:none;
       }
-      .text-overflow {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        width: 500px;
+
+      .tracks-box{
+        display:none;
       }
-    </style>
+
+      
+      .ui-slider-handle.handlers {
+        width: 2em !important;
+               
+        text-align: center;
+        
+      }
+      </style>
+
   </head>
-
   <body>
-    <div class="container">
-      <div id="login">
-        <h1>This is an example of the Authorization Code flow</h1>
-        <a href="/login" class="btn btn-primary">Log in with Spotify</a>
-      </div>
-      <div id="loggedin">
-        <div id="user-profile">
+    <div class='container'>
+        <div id='login'>
+          <button id='login-button' class='btn'>Login with Spotify</button>
         </div>
-        <div id="oauth">
+        <div id='loggedin'>
+          <div class='playlists-box'>
+            <h1>Step 1: Pick a playlist</h1> 
+            <table id="playlists" class="display"><thead><tr><th>Playlist Name</th><th>Description</th></tr></thead><tbody></tbody></table>
+          </div>
+
+          <div class='tracks-box'>
+            <h1>Step 2: Pick the songs for your playlist</h1>
+            <h2>Use the filters to find the appropiate songs</h2> 
+            <button class='tracks-back'>Back to playlists</button>
+
+            <div id='range-slider'>
+              <div id='handle-min' class="ui-slider-handle handlers"></div>
+              <div id='handle-max' class="ui-slider-handle handlers"></div>
+            </div>
+            <table id="tracks" class="display"><thead><tr><th>Track Name</th><th>Album</th></tr></thead><tbody></tbody></table>
+            <button class='tracks-back'>Back to playlists</button>
+          </div>
+         
         </div>
-        <button class="btn btn-default" id="obtain-new-token">Obtain new token using the refresh token</button>
-      </div>
+
+        
+
     </div>
-
-    <script id="user-profile-template" type="text/x-handlebars-template">
-      <h1>Logged in as {{display_name}}</h1>
-      <div class="media">
-        <div class="pull-left">
-          <img class="media-object" width="150" src="{{images.0.url}}" />
-        </div>
-        <div class="media-body">
-          <dl class="dl-horizontal">
-            <dt>Display name</dt><dd class="clearfix">{{display_name}}</dd>
-            <dt>Id</dt><dd>{{id}}</dd>
-            <dt>Email</dt><dd>{{email}}</dd>
-            <dt>Spotify URI</dt><dd><a href="{{external_urls.spotify}}">{{external_urls.spotify}}</a></dd>
-            <dt>Link</dt><dd><a href="{{href}}">{{href}}</a></dd>
-            <dt>Profile Image</dt><dd class="clearfix"><a href="{{images.0.url}}">{{images.0.url}}</a></dd>
-            <dt>Country</dt><dd>{{country}}</dd>
-          </dl>
-        </div>
-      </div>
-    </script>
-
-    <script id="oauth-template" type="text/x-handlebars-template">
-      <h2>oAuth info</h2>
-      <dl class="dl-horizontal">
-        <dt>Access token</dt><dd class="text-overflow">{{access_token}}</dd>
-        <dt>Refresh token</dt><dd class="text-overflow">{{refresh_token}}</dd>
-      </dl>
-    </script>
-
-    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css" />  
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" />
     <script src="https://code.jquery.com/jquery-1.10.1.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+    <script src="config.js"></script>
     <script>
-      (function() {
+      'use strict';
+      let accessToken = null;
 
-        /**
-         * Obtains parameters from the hash of the URL
-         * @return Object
-         */
-        function getHashParams() {
-          var hashParams = {};
-          var e, r = /([^&;=]+)=?([^&;]*)/g,
-              q = window.location.hash.substring(1);
-          while ( e = r.exec(q)) {
-             hashParams[e[1]] = decodeURIComponent(e[2]);
+      const stateKey = 'spotify_auth_state';
+      const spotifyBaseUrl = SPOTIFY_API_BASE_URL;
+      
+
+      $.fn.dataTable.ext.search.push(
+        function (settings, data, dataIndex){
+          if (settings.nTable.id !== 'tracks'){
+          
+            return true;
           }
-          return hashParams;
+          let min = $('#range-slider').slider('option', 'values')[0];
+          let max = $('#range-slider').slider('option', 'values')[1];
+         
+          let bpm = parseFloat (data[1]);
+          if (min <= bpm && bpm <= max){
+            return true;
+          }
+          else {
+            return false;
+          }
+
         }
+      );
 
-        var userProfileSource = document.getElementById('user-profile-template').innerHTML,
-            userProfileTemplate = Handlebars.compile(userProfileSource),
-            userProfilePlaceholder = document.getElementById('user-profile');
+   
+      (function(){
 
-        var oauthSource = document.getElementById('oauth-template').innerHTML,
-            oauthTemplate = Handlebars.compile(oauthSource),
-            oauthPlaceholder = document.getElementById('oauth');
 
-        var params = getHashParams();
+        let handleMin = $('#handle-min');
+        let handleMax = $('#handle-max');
+        $('#range-slider').slider({
+          create: function(){
+            handleMin.text($(this).slider('values', 0));
+            handleMax.text($(this).slider('values', 1));
+          },
+          range: true,
+          min:0,
+          max:500,
+          values:[60,100],
+          slide: function(event, ui){
+            handleMin.text (ui.values[0]);
+            handleMax.text (ui.values[1]);
+            let tracksTable = $('#tracks').DataTable();
+            tracksTable.draw();
+            
 
-        var access_token = params.access_token,
-            refresh_token = params.refresh_token,
-            error = params.error;
+            /*
+            let tracksTable = $('#tracks').DataTable();
+            tracksTable.column(1)
+              .data()
+              .filter(function(value, index){
+                console.log  ('=======================');
+                console.log  ('song: ' + value);
+                console.log('bottom: ' + ui.values[0]);
+                console.log('top: ' + ui.values[1]);  
 
-        if (error) {
-          alert('There was an error during the authentication: ' + error );
-        } else {
-          if (access_token) {
-            // render oauth info
-            oauthPlaceholder.innerHTML = oauthTemplate({
-              access_token: access_token,
-              refresh_token: refresh_token
-            });
-
-            $.ajax({
-                url: 'https://api.spotify.com/v1/me',
-                headers: {
-                  'Authorization': 'Bearer ' + access_token
-                },
-                success: function(response) {
-                  userProfilePlaceholder.innerHTML = userProfileTemplate(response);
-
-                  $('#login').hide();
-                  $('#loggedin').show();
-                }
-            });
-          } else {
-              // render initial screen
-              $('#login').show();
-              $('#loggedin').hide();
-          }
-
-          document.getElementById('obtain-new-token').addEventListener('click', function() {
-            $.ajax({
-              url: '/refresh_token',
-              data: {
-                'refresh_token': refresh_token
-              }
-            }).done(function(data) {
-              access_token = data.access_token;
-              oauthPlaceholder.innerHTML = oauthTemplate({
-                access_token: access_token,
-                refresh_token: refresh_token
+                //return (ui.values[0] <= value <= ui.values[1]) ? true : false; 
+                return false;
+                tracksTable.draw();
               });
-            });
-          }, false);
+              */
+          }
+        });
+
+        let params = getHashParams();
+        accessToken = params.access_token;
+        let state = params.state;
+        let storedState = localStorage.getItem(stateKey);
+
+        if (accessToken && (state == null || state !== storedState)){
+          $('#loggedin').show();
+          $('#login').hide();
+          $('#loggedin').add('auth error');
+ 
+        } 
+        else{
+          localStorage.removeItem(stateKey);
+ 
+          if (accessToken){
+            
+           initializePlaylists();
+          }
+          else{
+            
+            $('#loggedin').hide();
+            $('#login').show();
+        
+           
+            login(); // automatic login REMOVE IT
+    
+          }
         }
+
+        $('#login-button').on('click', login);
+
+        // TODO: make this other function or explore promises
+        $('#playlists').on('click', '.playlist-link', function(e){
+         
+          e.preventDefault();
+
+          initializeTracks($(this).attr('id'));          
+
+        });
+
+       
+        $('.tracks-back').on('click', function(){
+          initializePlaylists();
+        });
+
       })();
+
+
+      function initializeTracks(id){
+
+        $('.playlists-box').hide();
+        let t = $('#playlists').DataTable();
+        t.destroy();
+
+        let playlistId = id;
+        let tracksData = {
+          offset: 0,
+          limit: 100
+        };
+       
+       
+        $('#tracks').DataTable({
+          "bSort" : false
+        });
+
+        let tracksTable = $('#tracks').DataTable();
+        
+        tracksTable.clear();
+
+        $('.tracks-box').show();
+        callSpotify(spotifyBaseUrl + '/v1/playlists/' + playlistId + '/tracks', tracksData, findQuerySongs);
+
+        
+      }
+
+      function initializePlaylists(){
+
+        $('#loggedin').show();
+        $('#login').hide();
+
+        $('.tracks-box').hide();
+        let t = $('#tracks').DataTable();
+        t.clear();
+        t.destroy();
+        $('.playlists-box').show();
+
+        let data = {
+            limit:50,
+            offset:0
+        };
+
+        $('#playlists').DataTable({
+          "bSort" : false
+        });
+
+        let playlistsTable = $('#playlists').DataTable();
+        playlistsTable.clear();
+
+        callSpotify( spotifyBaseUrl + '/v1/me/playlists', data, displayPlaylists);
+
+     
+      }
+     
+      function callSpotify(url, options, callback){
+        $.ajax({
+          url: url,
+          data: options,
+          dataType: 'json',
+          headers:{
+            'Authorization' : 'Bearer ' + accessToken,
+            'Content-Type' : 'application/json'
+          },
+          success: function (response){
+            callback(response);
+          },
+          error: function(response){
+            callback(null);
+          }
+        });
+      }
+
+      function callSpotifyB(url, options, callback, callbackParameter){
+        $.ajax({
+          url: url,
+          data: options,
+          dataType: 'json',
+          headers:{
+            'Authorization' : 'Bearer ' + accessToken,
+            'Content-Type' : 'application/json'
+          },
+          success: function (response){
+           
+            callback(response, callbackParameter);
+          },
+          error: function(response){
+            callback(null);
+          }
+        });
+      }
+
+
+      function displayPlaylists(body){
+        
+        let tableCode = '';
+        let playlists = body.items;
+        let t = $('#playlists').DataTable();
+        for (var i = 0; i < playlists.length; i++){
+         
+          t.row.add([
+            '<a href="#" class="playlist-link" id=' + playlists[i].id + '>'+ playlists[i].name + '</a>',
+            playlists[i].tracks.total
+
+          ]).draw();
+
+        }
+
+        if (body.next != null){
+         
+          callSpotify(body.next, null, displayPlaylists);
+        }
+        
+      }
+/*
+      function displayTracks(body){
+
+        // use the for to get the ids of the tracks
+        // call spotify to get track features: https://api.spotify.com/v1/audio-features/?ids=4JpKVNYnVcJ8tuMKjAj50A,2NRANZE9UCmPAS5XVbXL40,24JygzOLM0EmRQeGtFcIcG
+        // create a new function to be a callback and send the features and the id and name to create the table there
+
+        let tracks = body.items;
+        let t = $('#tracks').DataTable();
+       
+        for (var i = 0; i < tracks.length; i++){
+      
+          
+          t.row.add([
+            '<a href="#" class="tracks-link" id=' + tracks[i].track.id + '>'+ tracks[i].track.name + '</a>',
+            tracks[i].track.album.name
+
+          ]).draw();
+
+      
+        }
+       
+        if (body.next != null){
+         
+          callSpotify(body.next, null, displayTracks);
+        }
+
+        
+      }
+*/
+      function addTracksToTable(body, tracks){
+        
+        let trackFeatures = body.audio_features;
+        let t = $('#tracks').DataTable();
+
+        for (let i = 0; i < trackFeatures.length; i++){
+          t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', trackFeatures[i].tempo]).draw();
+        }
+
+        
+      }
+
+      function findQuerySongs(body){
+        
+        // use the for to get the ids of the tracks
+        // call spotify to get track features: https://api.spotify.com/v1/audio-features/?ids=4JpKVNYnVcJ8tuMKjAj50A,2NRANZE9UCmPAS5XVbXL40,24JygzOLM0EmRQeGtFcIcG
+        // create a new function to be a callback and send the features and the id and name to create the table there
+
+        let tracks = body.items;
+        let t = $('#tracks').DataTable();
+       
+        let trackIds = '';
+        for (var i = 0; i < tracks.length; i++){
+      
+          if (trackIds == ''){
+            trackIds = tracks[i].track.id;
+          }
+          else{
+            trackIds += ',' + tracks[i].track.id;
+          }
+          
+          if ((i + 1) % 50 == 0 || (tracks.length == i + 1)){
+            callSpotifyB(spotifyBaseUrl + '/v1/audio-features/?ids=' + trackIds, null, addTracksToTable, tracks );
+            trackIds = '';
+          }
+          // hay que agregar la tabla acá y ponerle el nombre de la canción. ver si el id se puede poner como atributo del row para ponerle los features despues
+          
+        
+        //  t.row.add(['<a href="#">' + tracks[i].track.id + '</a>','more here']).draw();
+
+      
+        }
+
+
+        
+      }
+
+
+
+
+      function login(){
+            
+        const clientId = CLIENT_ID;
+        const redirectUri = REDIRECT_URI;
+        let state = generateRandomString(16);
+        localStorage.setItem(stateKey, state);
+
+        let scope = 'playlist-read-private playlist-read-collaborative';
+        let url = 'https://accounts.spotify.com/authorize';
+        url += '?response_type=token';
+        url += '&client_id=' + encodeURIComponent(clientId);
+        url += '&scope=' + encodeURIComponent(scope);
+        url += '&redirect_uri=' + encodeURIComponent(redirectUri);
+        url += '&state=' + encodeURIComponent(state);
+        
+       
+        window.location = url;
+
+      }
+
+      function getHashParams() {
+        var hashParams = {};
+        var e, r = /([^&;=]+)=?([^&;]*)/g,
+            q = window.location.hash.substring(1);
+        while ( e = r.exec(q)) {
+            hashParams[e[1]] = decodeURIComponent(e[2]);
+        }
+        return hashParams;
+      }
+      function generateRandomString(length) {
+        var text = '';
+        var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+        for (var i = 0; i < length; i++) {
+          text += possible.charAt(Math.floor(Math.random() * possible.length));
+        }
+        return text;
+      };
     </script>
+
+
   </body>
 </html>
