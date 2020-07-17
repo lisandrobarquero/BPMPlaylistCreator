@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Playlist Creator</title>
+    <title>Playlist BPM Creator</title>
 
     <style>
       .playlists-box{
@@ -41,7 +41,7 @@
               <div id='handle-min' class="ui-slider-handle handlers"></div>
               <div id='handle-max' class="ui-slider-handle handlers"></div>
             </div>
-            <table id="tracks" class="display"><thead><tr><th>Track Name</th><th>Album</th></tr></thead><tbody></tbody></table>
+            <table id="tracks" class="display"><thead><tr><th>Track Name</th><th>BPM (Beats per minute)</th></tr></thead><tbody></tbody></table>
             <button class='tracks-back'>Back to playlists</button>
           </div>
          
@@ -105,23 +105,8 @@
             handleMax.text (ui.values[1]);
             let tracksTable = $('#tracks').DataTable();
             tracksTable.draw();
-            
+           
 
-            /*
-            let tracksTable = $('#tracks').DataTable();
-            tracksTable.column(1)
-              .data()
-              .filter(function(value, index){
-                console.log  ('=======================');
-                console.log  ('song: ' + value);
-                console.log('bottom: ' + ui.values[0]);
-                console.log('top: ' + ui.values[1]);  
-
-                //return (ui.values[0] <= value <= ui.values[1]) ? true : false; 
-                return false;
-                tracksTable.draw();
-              });
-              */
           }
         });
 
@@ -149,7 +134,7 @@
             $('#login').show();
         
            
-            login(); // automatic login REMOVE IT
+           // login(); // automatic login REMOVE IT
     
           }
         }
@@ -352,11 +337,7 @@
             callSpotifyB(spotifyBaseUrl + '/v1/audio-features/?ids=' + trackIds, null, addTracksToTable, tracks );
             trackIds = '';
           }
-          // hay que agregar la tabla acá y ponerle el nombre de la canción. ver si el id se puede poner como atributo del row para ponerle los features despues
-          
-        
-        //  t.row.add(['<a href="#">' + tracks[i].track.id + '</a>','more here']).draw();
-
+      
       
         }
 
