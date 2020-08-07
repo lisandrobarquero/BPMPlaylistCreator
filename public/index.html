@@ -1,5 +1,7 @@
 <html>
   <head>
+
+    
     <title>Playlist BPM Creator</title>
 
     <style>
@@ -41,7 +43,17 @@
               <div id='handle-min' class="ui-slider-handle handlers"></div>
               <div id='handle-max' class="ui-slider-handle handlers"></div>
             </div>
-            <table id="tracks" class="display"><thead><tr><th>Track Name</th><th>BPM (Beats per minute)</th></tr></thead><tbody></tbody></table>
+            <button id='addToPlaylist'>Add tracks To Playlist</button>
+            <table id="tracks" class="display" style="width:100%">
+              <thead>
+                <tr>
+                  <th>Track Name</th>
+                  <th>BPM (Beats per minute)</th>
+                  <th>Id</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
             <button class='tracks-back'>Back to playlists</button>
           </div>
          
@@ -50,10 +62,15 @@
         
 
     </div>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/select/1.3.1/css/select.dataTables.min.css" />  
+    
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.21/css/jquery.dataTables.css" />  
     <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" />
     <script src="https://code.jquery.com/jquery-1.10.1.min.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.21/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/select/1.3.1/js/dataTables.select.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.6.2/js/dataTables.buttons.min.js"></script>
+    
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
     <script src="config.js"></script>
@@ -134,7 +151,7 @@
             $('#login').show();
         
            
-           // login(); // automatic login REMOVE IT
+            login(); // automatic login REMOVE IT
     
           }
         }
@@ -169,20 +186,52 @@
           offset: 0,
           limit: 100
         };
-       
-       
-        $('#tracks').DataTable({
-          "bSort" : false
+  
+       let tracksTable = $('#tracks').DataTable({
+          columnDefs:[{
+            visible : false,
+            targets : 2
+          }],
+          
+          order: [[ 1, 'asc' ]],
+          dom: 'Bfrtip',
+          buttons: [
+            {
+                text: 'Get selected data',
+                action: function () {
+                    var count = tracksTable.rows('.selected').data()[0][2]; // matriz con los valores
+ 
+                    alert( count );
+                }
+            }
+        ]
+          
         });
 
-        let tracksTable = $('#tracks').DataTable();
-        
-        tracksTable.clear();
+        $('#tracks').on( 'click', 'tr', function () {
+            $(this).toggleClass('selected');
+        } );
+
+
+        $(".selectAll").on( "click", function(e) {
+          if ($(this).is( ":checked" )) {
+            tracksTable.rows().select();        
+          } else {
+            tracksTable.rows().deselect(); 
+          }
+      });
+
+
+
 
         $('.tracks-box').show();
-        callSpotify(spotifyBaseUrl + '/v1/playlists/' + playlistId + '/tracks', tracksData, findQuerySongs);
+        getNextTracksBatch(spotifyBaseUrl + '/v1/playlists/' + playlistId + '/tracks', tracksData, findQuerySongs);
 
         
+      }
+
+      function getNextTracksBatch(url, tracksData, callback){
+        callSpotify(url, tracksData, callback);
       }
 
       function initializePlaylists(){
@@ -212,7 +261,7 @@
 
      
       }
-     
+
       function callSpotify(url, options, callback){
         $.ajax({
           url: url,
@@ -231,7 +280,7 @@
         });
       }
 
-      function callSpotifyB(url, options, callback, callbackParameter){
+      function callSpotifyAdvanced(url, options, callback, callbackParameter, nextQuery){
         $.ajax({
           url: url,
           data: options,
@@ -242,10 +291,10 @@
           },
           success: function (response){
            
-            callback(response, callbackParameter);
+            callback(response, callbackParameter, nextQuery);
           },
           error: function(response){
-            callback(null);
+            callback(null, null, null);
           }
         });
       }
@@ -302,15 +351,18 @@
         
       }
 */
-      function addTracksToTable(body, tracks){
+      function addTracksToTable(body, tracks, nextQuery){
         
         let trackFeatures = body.audio_features;
         let t = $('#tracks').DataTable();
 
         for (let i = 0; i < trackFeatures.length; i++){
-          t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', Math.floor(trackFeatures[i].tempo)]).draw();
+          t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', Math.floor(trackFeatures[i].tempo), tracks[i].track.id]).draw();
         }
 
+        if (nextQuery){
+          getNextTracksBatch(nextQuery, null, findQuerySongs);
+        }
         
       }
 
@@ -332,9 +384,13 @@
           else{
             trackIds += ',' + tracks[i].track.id;
           }
+
+          if (body.next){
+            console.log ('body.next ' + body.next);
+          }
           
           if ((i + 1) % 50 == 0 || (tracks.length == i + 1)){
-            callSpotifyB(spotifyBaseUrl + '/v1/audio-features/?ids=' + trackIds, null, addTracksToTable, tracks );
+            callSpotifyAdvanced(spotifyBaseUrl + '/v1/audio-features/?ids=' + trackIds, null, addTracksToTable, tracks, body.next );
             trackIds = '';
           }
       
