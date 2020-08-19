@@ -167,6 +167,11 @@
 
         });
 
+        $('#tracks').on( 'click', 'tr', function (e) {
+          e.preventDefault();    
+            $(this).toggleClass('selected');
+        } );
+
        
         $('.tracks-back').on('click', function(){
           initializePlaylists();
@@ -176,22 +181,24 @@
 
 
       function initializeTracks(id){
-
+        
         $('.playlists-box').hide();
         let t = $('#playlists').DataTable();
+        t.clear().draw();
         t.destroy();
-
-        let playlistId = id;
+        
         let tracksData = {
           offset: 0,
           limit: 100
         };
-  
-       let tracksTable = $('#tracks').DataTable({
+        
+        let tracksTable = $('#tracks').DataTable({
           columnDefs:[{
             visible : false,
             targets : 2
           }],
+          
+            "bSort" : false,
           
           order: [[ 1, 'asc' ]],
           dom: 'Bfrtip',
@@ -207,30 +214,30 @@
         ]
           
         });
+         
+        
 
-        $('#tracks').on( 'click', 'tr', function () {
-            $(this).toggleClass('selected');
-        } );
-
-
+/*
         $(".selectAll").on( "click", function(e) {
           if ($(this).is( ":checked" )) {
             tracksTable.rows().select();        
           } else {
             tracksTable.rows().deselect(); 
           }
-      });
+        });
 
+*/
 
-
-
+        
         $('.tracks-box').show();
-        getNextTracksBatch(spotifyBaseUrl + '/v1/playlists/' + playlistId + '/tracks', tracksData, findQuerySongs);
+        getNextTracksBatch(spotifyBaseUrl + '/v1/playlists/' + id + '/tracks', tracksData, findQuerySongs);
 
         
       }
 
       function getNextTracksBatch(url, tracksData, callback){
+
+        
         callSpotify(url, tracksData, callback);
       }
 
@@ -241,7 +248,7 @@
 
         $('.tracks-box').hide();
         let t = $('#tracks').DataTable();
-        t.clear();
+        t.clear().draw();
         t.destroy();
         $('.playlists-box').show();
 
@@ -255,8 +262,9 @@
         });
 
         let playlistsTable = $('#playlists').DataTable();
-        playlistsTable.clear();
-
+        playlistsTable.clear().draw();
+       
+        
         callSpotify( spotifyBaseUrl + '/v1/me/playlists', data, displayPlaylists);
 
      
@@ -357,10 +365,15 @@
         let t = $('#tracks').DataTable();
 
         for (let i = 0; i < trackFeatures.length; i++){
-          t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', Math.floor(trackFeatures[i].tempo), tracks[i].track.id]).draw();
+          if (trackFeatures[i] !== null){
+            //console.log('id ' + tracks[i].track.id)
+            t.row.add(['<a href="#">' + tracks[i].track.name +'</a>', Math.floor(trackFeatures[i].tempo), tracks[i].track.id]).draw();
+          }
+          
         }
-
+        console.log ('nextQuery ' + nextQuery);
         if (nextQuery){
+          
           getNextTracksBatch(nextQuery, null, findQuerySongs);
         }
         
@@ -386,23 +399,16 @@
           }
 
           if (body.next){
-            console.log ('body.next ' + body.next);
+           // console.log ('body.next ' + body.next);
           }
           
-          if ((i + 1) % 50 == 0 || (tracks.length == i + 1)){
+          if ((i + 1) % 100 == 0 || (tracks.length == i + 1)){
+
             callSpotifyAdvanced(spotifyBaseUrl + '/v1/audio-features/?ids=' + trackIds, null, addTracksToTable, tracks, body.next );
             trackIds = '';
           }
-      
-      
         }
-
-
-        
       }
-
-
-
 
       function login(){
             
